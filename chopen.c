@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <stdarg.h>
 
 #define DEBUG 1
 
@@ -22,7 +23,7 @@
 #define rename_failed(filename, fmt, ...) printf("Error (%s:%d): " \
                                           fmt, __FILE__, __LINE__, __VA_ARGS__); \
                                           return orig_unlink(filename);
-typedef int (*orig_open_type)(const char *pathname, int flags);
+typedef int (*orig_open_type)(const char *pathname, int flags, ...);
 
 orig_open_type orig_open;
 
@@ -34,6 +35,10 @@ void _init(void) {
 int open(const char *pathname, int flags, ...)
 {
   debug_print("in open: %s\n", pathname);
-  return orig_open(pathname, flags);
+
+  va_list args;
+  va_start(args, flags);
+
+  return orig_open(pathname, flags, args);
 }
 
