@@ -10,7 +10,6 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <stdarg.h>
 
 #define DEBUG 1
 
@@ -32,13 +31,9 @@ void _init(void) {
     orig_open = (orig_open_type)dlsym(RTLD_NEXT, "open");
 }
 
-int open(const char *pathname, int flags, ...)
+int open(const char *pathname, int flags, mode_t mode)
 {
   debug_print("in open: %s\n", pathname);
-
-  va_list args;
-  va_start(args, flags);
-
-  return orig_open(pathname, flags, args);
+  return orig_open(pathname, flags, mode);
 }
 
