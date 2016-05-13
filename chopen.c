@@ -52,7 +52,7 @@ int open(const char *pathname, int flags, mode_t mode)
       return -1;
 
     new_name++;
-    if (strncmp(pathname, trigger_value, new_name - trigger_value)) {
+    if (0 == strncmp(pathname, trigger_value, new_name - trigger_value)) {
       debug_print("new name: %s\n", new_name);
       pathname = new_name;
     }
