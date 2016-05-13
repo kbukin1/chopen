@@ -22,8 +22,15 @@
 #define rename_failed(filename, fmt, ...) printf("Error (%s:%d): " \
                                           fmt, __FILE__, __LINE__, __VA_ARGS__); \
                                           return orig_unlink(filename);
-typedef int (*orig_open_type)(const char *pathname, int flags, ...);
 
+/* CHANGE_MY_NAME varible is expected to be set to:
+ *                old_name:new_name 
+ */
+
+const char* chopen_trigger = "CHANGE_MY_NAME";
+const char* chopen_new_name = 0;
+
+typedef int (*orig_open_type)(const char *pathname, int flags, ...);
 orig_open_type orig_open;
 
 void _init(void) {
@@ -34,6 +41,23 @@ void _init(void) {
 int open(const char *pathname, int flags, mode_t mode)
 {
   debug_print("in open: %s\n", pathname);
+
+  const char* trigger_value = getenv(chopen_trigger);
+  if (trigger_value) {
+    const char* new_name;
+    for (new_name = trigger_value; *new_name && *new_name != ':'; new_name++) {
+    }
+    
+    if (*new_name != ':')
+      return -1;
+
+    new_name++;
+    if (strncmp(pathname, trigger_value, new_name - trigger_value)) {
+      debug_print("new name: %s\n", new_name);
+      pathname = new_name;
+    }
+  }
+
   return orig_open(pathname, flags, mode);
 }
 
