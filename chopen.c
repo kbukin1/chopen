@@ -11,7 +11,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define DEBUG 1
+// #define DEBUG 1
 
 #ifdef DEBUG
 #define debug_print(fmt, ...) printf("%s:%d: " fmt, __FILE__, __LINE__, __VA_ARGS__);
@@ -32,15 +32,17 @@ const char* chopen_new_name = 0;
 
 typedef int (*orig_open_type)(const char *pathname, int flags, ...);
 orig_open_type orig_open;
+orig_open_type orig_open64;
 
 void _init(void) {
     // debug_print("in _init(), pid=%d\n", getpid());
-    orig_open = (orig_open_type)dlsym(RTLD_NEXT, "open");
+    orig_open   = (orig_open_type)dlsym(RTLD_NEXT, "open");
+    orig_open64 = (orig_open_type)dlsym(RTLD_NEXT, "open64");
 }
 
-int open(const char *pathname, int flags, mode_t mode)
+int open_priv(orig_open_type real_open, const char *pathname, int flags, mode_t mode)
 {
-  debug_print("in open: %s\n", pathname);
+  debug_print("in open_priv: %s\n", pathname);
 
   const char* trigger_value = getenv(chopen_trigger);
   if (trigger_value) {
@@ -58,6 +60,16 @@ int open(const char *pathname, int flags, mode_t mode)
     }
   }
 
-  return orig_open(pathname, flags, mode);
+  return real_open(pathname, flags, mode);
+}
+
+int open(const char * pathname, int flags, mode_t mode)
+{
+  return open_priv(orig_open, pathname, flags, mode);
+}
+
+int open64(const char * pathname, int flags, mode_t mode)
+{
+  return open_priv(orig_open64, pathname, flags, mode);
 }
 
