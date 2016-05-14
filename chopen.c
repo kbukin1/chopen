@@ -55,7 +55,7 @@ int open_priv(orig_open_type real_open, const char *pathname, int flags, mode_t 
 
     new_name++;
     if (0 == strncmp(pathname, trigger_value, new_name - trigger_value - 1)) {
-      debug_print("new name: %s\n", new_name);
+      debug_print("chopen: [%s] => [%s]\n", pathname, new_name);
       pathname = new_name;
     }
   }
