@@ -23,56 +23,98 @@
  *                old_name:new_name 
  */
 
-const char* chopen_trigger_key    = "CHANGE_MY_NAME";
-const char* chopen_trigger_value  = 0; /* these inits are mostly     */
-const char* chopen_new_pname      = 0; /* redundant, but do not hurt */
-size_t      chopen_old_pname_size = 0;
-char        chopen_new_rname[PATH_MAX];
+const size_t chopen_max_renames    = 10;
+size_t       chopen_watch_names    = 0;
+
+const char*  chopen_trigger_key    = "CHANGE_MY_NAME";
+const char*  chopen_trigger_value  = 0; /* these inits are mostly     */
+const char*  chopen_new_pname      = 0; /* redundant, but do not hurt */
+size_t       chopen_old_pname_size = 0;
+char         chopen_new_rname[PATH_MAX];
 
 typedef int (*orig_open_type)(const char *pathname, int flags, ...);
 orig_open_type orig_open;
 orig_open_type orig_open64;
+
+/* returns 1 if rename pattern was found,
+ *         0 otherwise
+ */
+int init_rename(const char*  trigger_key, 
+                const char** trigger_value,
+                const char** new_pname,
+                size_t*      old_pname_size) 
+{
+  *trigger_value = getenv(trigger_key);
+  if (*trigger_value) {
+    for (*new_pname = *trigger_value; **new_pname && **new_pname != ':'; (*new_pname)++) 
+    {
+      debug_print("l: %s\n", *new_pname);
+      /* */
+    }
+
+    *old_pname_size = *new_pname - *trigger_value;
+    *new_pname = **new_pname == ':' ? ++(*new_pname) : 0;
+
+    debug_print("in init_rename(), %s=%s\n", trigger_key, *trigger_value);
+
+    return 1;
+  }    
+
+  return 0;
+}
 
 void _init(void) {
     // debug_print("in _init(), pid=%d\n", getpid());
     orig_open   = (orig_open_type)dlsym(RTLD_NEXT, "open");
     orig_open64 = (orig_open_type)dlsym(RTLD_NEXT, "open64");
 
-    chopen_trigger_value = getenv(chopen_trigger_key);
+    init_rename( chopen_trigger_key,
+                &chopen_trigger_value,
+                &chopen_new_pname,
+                &chopen_old_pname_size);
+}
 
-    if (chopen_trigger_value) {
-      for (chopen_new_pname = chopen_trigger_value; 
-          *chopen_new_pname && *chopen_new_pname != ':'; chopen_new_pname++) 
-      {
-        /* */
-      }
-      chopen_old_pname_size = chopen_new_pname - chopen_trigger_value;
-      chopen_new_pname = *chopen_new_pname == ':' ? ++chopen_new_pname : 0;
-      debug_print("in _init(), t=[%s]\n", chopen_trigger_value);
-    }    
+/* 
+ * returns new name if renaming needs to be done
+ *         or zero otherwise
+ */
+const char* find_new_name(const char* pathname, 
+                          const char* trigger_value, 
+                          size_t old_pname_size, 
+                          const char* new_pname) 
+{
+  if (new_pname) {
+    size_t pathname_size = strlen(pathname);
+    if (pathname_size >= old_pname_size && 
+        0 == strncmp(pathname + pathname_size - old_pname_size,
+                     trigger_value, old_pname_size) ) 
+    {
+      size_t nbytes = pathname_size - old_pname_size;
+      strncpy(chopen_new_rname, pathname, nbytes);
+
+      strncpy(chopen_new_rname + nbytes, new_pname, PATH_MAX - nbytes -1);
+
+      debug_print("chopen: tv=[%s] rp=[%s] np=[%s]\n", trigger_value,
+                                                       pathname,
+                                                       chopen_new_rname);
+      return chopen_new_rname;
+    }
+    return 0;
+  } else {
+    return 0;
+  }
 }
 
 int open_priv(orig_open_type real_open, const char *pathname, int flags, mode_t mode)
 {
-  // debug_print("in open_priv: %s\n", pathname);
+  debug_print("in open_priv: %s\n", pathname);
 
-  if (chopen_new_pname) {
-    size_t pathname_size = strlen(pathname);
-    if (pathname_size >= chopen_old_pname_size && 
-        0 == strncmp(pathname + pathname_size - chopen_old_pname_size,
-             chopen_trigger_value, chopen_old_pname_size) ) {
+  const char* nn = find_new_name(pathname, 
+                                 chopen_trigger_value, 
+                                 chopen_old_pname_size, 
+                                 chopen_new_pname);
 
-      size_t nbytes = pathname_size - chopen_old_pname_size;
-      strncpy(chopen_new_rname, pathname, nbytes);
-
-      strncpy(chopen_new_rname + nbytes, chopen_new_pname, PATH_MAX - nbytes -1);
-
-      debug_print("chopen: tv=[%s] rp=[%s] np=[%s]\n", chopen_trigger_value,
-                                                       pathname,
-                                                       chopen_new_rname);
-      pathname = chopen_new_rname;
-    }
-  }
+  pathname = nn ? nn : pathname;
 
   return real_open(pathname, flags, mode);
 }
