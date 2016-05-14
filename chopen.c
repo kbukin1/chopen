@@ -52,6 +52,7 @@ void _init(void) {
       }
       chopen_old_pname_size = chopen_new_pname - chopen_trigger_value;
       chopen_new_pname = *chopen_new_pname == ':' ? ++chopen_new_pname : 0;
+      debug_print("in _init(), t=[%s]\n", chopen_trigger_value);
     }    
 }
 
@@ -61,7 +62,7 @@ int open_priv(orig_open_type real_open, const char *pathname, int flags, mode_t 
 
   if (chopen_new_pname) {
     size_t pathname_size = strlen(pathname);
-    if (pathname_size > chopen_old_pname_size && 
+    if (pathname_size >= chopen_old_pname_size && 
         0 == strncmp(pathname + pathname_size - chopen_old_pname_size,
              chopen_trigger_value, chopen_old_pname_size) ) {
 
