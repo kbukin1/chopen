@@ -2,14 +2,20 @@
 
 ## A library for changing names of accessed files.
 
+### Library setup
+
 Sometimes there is a need for changing file names an application accesses
 without altering application itself. This library does just that. The
-library is expected to be loaded by setting `LD_PRELOAD` variable
-to `/path/to/the/library/$LIB/chopen.so`. $LIB should not be expanded by
-the shell, so enclose it into single quotes. $LIB is replaced by the
+library is expected to be loaded via `LD_PRELOAD` env variable. 
+
+If you are running a mix of 32- and 64- bit applications then set `LD_PRELOAD` to
+something like `'/path/to/the/library/$LIB/chopen.so'`. `$LIB` should not be expanded by
+the shell, so enclose it into single quotes. `$LIB` is replaced by the
 loader with `lib` or `lib64` depending on the bitness of the application.
 32- and 64-bit versions of the library should be found in lib and
 lib64 directories.
+
+### Control of file renamig
 
 File renaming is controlled by `CHANGE_MY_NAME_?` environment
 variables (`CHANGE_MY_NAME_0`, `CHANGE_MY_NAME_1` through `CHANGE_MY_NAME_9`). 
