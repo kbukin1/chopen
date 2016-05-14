@@ -19,10 +19,6 @@
 #define debug_print(fmt, ...) (void)0;
 #endif
 
-#define rename_failed(filename, fmt, ...) printf("Error (%s:%d): " \
-                                          fmt, __FILE__, __LINE__, __VA_ARGS__); \
-                                          return orig_unlink(filename);
-
 /* CHANGE_MY_NAME varible is expected to be set to:
  *                old_name:new_name 
  */
