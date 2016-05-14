@@ -11,7 +11,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-// #define DEBUG 1
+//#define DEBUG 1
 
 #ifdef DEBUG
 #define debug_print(fmt, ...) printf("%s:%d: " fmt, __FILE__, __LINE__, __VA_ARGS__);
@@ -23,14 +23,15 @@
  *                old_name:new_name 
  */
 
-const size_t chopen_max_renames    = 10;
-size_t       chopen_watch_names    = 0;
+#define      chopen_max_renames 10
+size_t       chopen_watch_names = 0;
 
-const char*  chopen_trigger_key    = "CHANGE_MY_NAME";
-const char*  chopen_trigger_value  = 0; /* these inits are mostly     */
-const char*  chopen_new_pname      = 0; /* redundant, but do not hurt */
-size_t       chopen_old_pname_size = 0;
-char         chopen_new_rname[PATH_MAX];
+const char* chopen_trigger_key_base = "CHANGE_MY_NAME";
+const char* chopen_trigger_value[chopen_max_renames]; 
+const char* chopen_new_pname[chopen_max_renames];
+size_t      chopen_old_pname_size[chopen_max_renames];
+char        chopen_new_rname[PATH_MAX]; /* single copy... hopefully there are no
+                                            multiple renames from parallel threads */
 
 typedef int (*orig_open_type)(const char *pathname, int flags, ...);
 orig_open_type orig_open;
@@ -48,7 +49,6 @@ int init_rename(const char*  trigger_key,
   if (*trigger_value) {
     for (*new_pname = *trigger_value; **new_pname && **new_pname != ':'; (*new_pname)++) 
     {
-      debug_print("l: %s\n", *new_pname);
       /* */
     }
 
@@ -68,10 +68,14 @@ void _init(void) {
     orig_open   = (orig_open_type)dlsym(RTLD_NEXT, "open");
     orig_open64 = (orig_open_type)dlsym(RTLD_NEXT, "open64");
 
-    init_rename( chopen_trigger_key,
-                &chopen_trigger_value,
-                &chopen_new_pname,
-                &chopen_old_pname_size);
+    char key[32];
+    for (int i = 0; i < chopen_max_renames; ++i) {
+      sprintf(key, "%s_%d", chopen_trigger_key_base, i);
+      chopen_watch_names += init_rename( key,
+                                         chopen_trigger_value+i,
+                                         chopen_new_pname+i,
+                                         chopen_old_pname_size+i);
+    }
 }
 
 /* 
@@ -109,12 +113,18 @@ int open_priv(orig_open_type real_open, const char *pathname, int flags, mode_t 
 {
   debug_print("in open_priv: %s\n", pathname);
 
-  const char* nn = find_new_name(pathname, 
-                                 chopen_trigger_value, 
-                                 chopen_old_pname_size, 
-                                 chopen_new_pname);
-
-  pathname = nn ? nn : pathname;
+  if (chopen_watch_names) {
+    for (int i = 0; i < chopen_max_renames; ++i) {
+      const char* nn = find_new_name(pathname, 
+                                     *(chopen_trigger_value+i), 
+                                     *(chopen_old_pname_size+i), 
+                                     *(chopen_new_pname+i));
+      if (nn) {
+        pathname = nn;
+        break;
+      }
+    }
+  }
 
   return real_open(pathname, flags, mode);
 }
