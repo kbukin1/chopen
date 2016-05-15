@@ -38,6 +38,14 @@ typedef int (*orig_open_type)(const char *pathname, int flags, ...);
 orig_open_type orig_open;
 orig_open_type orig_open64;
 
+#ifdef DEBUG
+typedef int (*orig_unlink_type)(const char*);
+orig_unlink_type orig_unlink;
+
+typedef int (*orig_creat_type)(const char *pathname, mode_t mode);
+orig_creat_type orig_creat;
+#endif
+
 /* returns 1 if rename pattern was found,
  *         0 otherwise
  */
@@ -71,6 +79,10 @@ void _init(void) {
     // debug_print("in _init(), pid=%d\n", getpid());
     orig_open   = (orig_open_type)dlsym(RTLD_NEXT, "open");
     orig_open64 = (orig_open_type)dlsym(RTLD_NEXT, "open64");
+#ifdef DEBUG
+    orig_unlink = (orig_unlink_type)dlsym(RTLD_NEXT,"unlink");
+    orig_creat  = (orig_creat_type)dlsym(RTLD_NEXT,"creat");
+#endif
 
     char key[32];
     for (int i = 0; i < chopen_max_renames; ++i) {
@@ -149,3 +161,16 @@ int open64(const char * pathname, int flags, mode_t mode)
   return open_priv(orig_open64, pathname, flags, mode);
 }
 
+#ifdef DEBUG
+int creat(const char * pathname, mode_t mode)
+{
+  debug_print("in creat [%s]\n", pathname);
+  return orig_creat(pathname, mode);
+}
+
+int unlink(const char * pathname)
+{
+  debug_print("in unlink [%s]\n", pathname);
+  return orig_unlink(pathname);
+}
+#endif
