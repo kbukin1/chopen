@@ -33,6 +33,7 @@ const char* chopen_new_pname[chopen_max_renames];
 size_t      chopen_old_pname_size[chopen_max_renames];
 char        chopen_new_rname[PATH_MAX]; /* single copy... hopefully there are no
                                             multiple renames from parallel threads */
+char        chopen_trigger_value_loc[2*PATH_MAX]; /* almost enough for two maximum paths */
 
 typedef int (*orig_open_type)(const char *pathname, int flags, ...);
 orig_open_type orig_open;
@@ -56,6 +57,8 @@ int init_rename(const char*  trigger_key,
 {
   *trigger_value = getenv(trigger_key);
   if (*trigger_value) {
+    strncpy(chopen_trigger_value_loc, *trigger_value, 2*PATH_MAX); /* cannot trust this string will */
+    *trigger_value = chopen_trigger_value_loc;                     /* be kept for us to use later */
     for (*new_pname = *trigger_value; **new_pname && **new_pname != ':'; (*new_pname)++) 
     {
       /* */
