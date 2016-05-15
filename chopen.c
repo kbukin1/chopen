@@ -14,7 +14,8 @@
 //#define DEBUG 1
 
 #ifdef DEBUG
-#define debug_print(fmt, ...) printf("%s:%d: " fmt, __FILE__, __LINE__, __VA_ARGS__);
+FILE* chopen_debug_output;
+#define debug_print(fmt, ...) fprintf(chopen_debug_output, "[%d]%s:%d: " fmt, getpid(),__FILE__, __LINE__, __VA_ARGS__);
 #else
 #define debug_print(fmt, ...) (void)0;
 #endif
@@ -64,6 +65,9 @@ int init_rename(const char*  trigger_key,
 }
 
 void _init(void) {
+#ifdef DEBUG
+    chopen_debug_output = fopen("/tmp/chopen.txt", "a");
+#endif
     // debug_print("in _init(), pid=%d\n", getpid());
     orig_open   = (orig_open_type)dlsym(RTLD_NEXT, "open");
     orig_open64 = (orig_open_type)dlsym(RTLD_NEXT, "open64");
@@ -76,6 +80,12 @@ void _init(void) {
                                          chopen_new_pname+i,
                                          chopen_old_pname_size+i);
     }
+}
+
+void _fini(void) {
+#ifdef DEBUG
+    fclose(chopen_debug_output);
+#endif
 }
 
 /* 
@@ -111,7 +121,7 @@ const char* find_new_name(const char* pathname,
 
 int open_priv(orig_open_type real_open, const char *pathname, int flags, mode_t mode)
 {
-  debug_print("in open_priv: %s\n", pathname);
+  debug_print("in open_priv: %s [%d]\n", pathname, chopen_watch_names);
 
   if (chopen_watch_names) {
     for (int i = 0; i < chopen_max_renames; ++i) {
