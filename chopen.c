@@ -39,6 +39,9 @@ typedef int (*orig_open_type)(const char *pathname, int flags, ...);
 orig_open_type orig_open;
 orig_open_type orig_open64;
 
+typedef int (*orig_rename_type)(const char *old_path, const char *new_path);
+orig_rename_type orig_rename;
+
 #ifdef DEBUG
 typedef int (*orig_unlink_type)(const char*);
 orig_unlink_type orig_unlink;
@@ -82,6 +85,7 @@ void _init(void) {
     // debug_print("in _init(), pid=%d\n", getpid());
     orig_open   = (orig_open_type)dlsym(RTLD_NEXT, "open");
     orig_open64 = (orig_open_type)dlsym(RTLD_NEXT, "open64");
+    orig_rename  = (orig_rename_type)dlsym(RTLD_NEXT,"rename");
 #ifdef DEBUG
     orig_unlink = (orig_unlink_type)dlsym(RTLD_NEXT,"unlink");
     orig_creat  = (orig_creat_type)dlsym(RTLD_NEXT,"creat");
@@ -156,12 +160,52 @@ int open_priv(orig_open_type real_open, const char *pathname, int flags, mode_t 
 
 int open(const char * pathname, int flags, mode_t mode)
 {
+  // debug_print("in open [%s]\n", pathname);
   return open_priv(orig_open, pathname, flags, mode);
 }
 
 int open64(const char * pathname, int flags, mode_t mode)
 {
+  // debug_print("in open64 [%s]\n", pathname);
   return open_priv(orig_open64, pathname, flags, mode);
+}
+
+int rename(const char* old_path, const char* new_path)
+{
+  debug_print("in rename [%s] [%s]\n", old_path, new_path);
+
+  const char* orig_new_path = 0;
+  if (chopen_watch_names) {
+    for (int i = 0; i < chopen_max_renames; ++i) {
+      const char* nn = find_new_name(old_path, 
+                                     *(chopen_trigger_value+i), 
+                                     *(chopen_old_pname_size+i), 
+                                     *(chopen_new_pname+i));
+      if (nn) {
+        old_path = nn;
+        break;
+      }
+    }
+
+    for (int i = 0; i < chopen_max_renames; ++i) {
+      const char* nn = find_new_name(new_path, 
+                                     *(chopen_trigger_value+i), 
+                                     *(chopen_old_pname_size+i), 
+                                     *(chopen_new_pname+i));
+      if (nn) {
+        orig_new_path = new_path;
+        new_path = nn;
+        break;
+      }
+    }
+
+  }
+
+  int ret = orig_rename(old_path, new_path);
+  if (orig_new_path)
+    unlink(orig_new_path);
+
+  return ret;
 }
 
 #ifdef DEBUG
@@ -171,9 +215,12 @@ int creat(const char * pathname, mode_t mode)
   return orig_creat(pathname, mode);
 }
 
+#if 0
 int unlink(const char * pathname)
 {
   debug_print("in unlink [%s]\n", pathname);
   return orig_unlink(pathname);
 }
 #endif
+#endif
+
