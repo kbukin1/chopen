@@ -4,7 +4,7 @@ LD = ld
 CONFIG32        := lib
 CONFIG64        := lib64
 
-SOURCES		:= chopen.c
+SOURCES		:= chopenf.c
 OBJECTS		:= $(SOURCES:%.c=%.o)
 
 INCLUDES  :=
@@ -17,24 +17,24 @@ LDFLAGS64	:= -shared -ldl
 CREATE_DIRS 	:= $(shell mkdir -p $(CONFIG32) $(CONFIG64))
 
 
-all: chopen32 chopen64
+all: chopenf32 chopenf64
 
 clean:
 	rm -rf $(CONFIG32) $(CONFIG64)
 
 # --------------
-chopen32: $(CONFIG32)/chopen.so
+chopenf32: $(CONFIG32)/chopenf.so
 
-$(CONFIG32)/chopen.so: $(SOURCES:%.c=$(CONFIG32)/%.o)
+$(CONFIG32)/chopenf.so: $(SOURCES:%.c=$(CONFIG32)/%.o)
 	$(LD) $(LDFLAGS32) -o $@ $^
 
 $(CONFIG32)/%.o:  %.c
 	$(CC) $(CFLAGS32) $(INCLUDES) -c -o $@ $<
 
 # --------------
-chopen64: $(CONFIG64)/chopen.so
+chopenf64: $(CONFIG64)/chopenf.so
 
-$(CONFIG64)/chopen.so: $(SOURCES:%.c=$(CONFIG64)/%.o)
+$(CONFIG64)/chopenf.so: $(SOURCES:%.c=$(CONFIG64)/%.o)
 	$(LD) $(LDFLAGS64) -o $@ $^
 
 $(CONFIG64)/%.o:  %.c
